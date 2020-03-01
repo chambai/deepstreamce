@@ -1,0 +1,52 @@
+# Simple 18 layer DNN Model trained on 5 classes of the cifar 10 dataset.
+# Data instances supplied to DNN via time loop
+# Final activation layer, Global Max Pooling (GMP) applied 
+# (uses the subsequent layer to the final activation layer as that provides GMP) 2 classes
+# Autoencoder reduction
+# 
+LoggingEnabled=True
+LogPath=/home/jupyter/deepactistream/results
+LogLevel=INFO
+ProcessorType=GPU
+DatasetName=cifar10
+DataFilter=2classes
+DataClasses=[0,1]
+DnnModelPath=models/vgg16_cifar10_2classes01.h5
+DataInputStreamName=time
+DataSourceName=add
+ActivationThreshold=-1
+DisplayTrainingActivations=False
+LoadReducedActivationsFromFile=False
+StopAtClustering=False
+ClustererName=mcod
+mcod_k=80
+mcod_radius=0.04
+mcod_windowsize=5001
+anyout_windowsize=6006
+ActivationLayerExtraction=single
+IncludedLayers=[9,12,13,15,16,17,20,21]
+ActivationDataReductionName=autoenc
+Topmost=-1
+AutoencoderName=undercomp
+NumActivationTrainingInstances=-1
+ActivationTrainingBatchSize=1000
+NumActivationElements=-1
+NumUnseenInstances=10
+TimeIntervalBetweenInstances=0.0001
+SimulateActivations=False
+SimulatePredictions=False
+DisplayImage=False
+DisplayHeatmaps=False
+DisplayActivationVis=False
+ActivationScatterPlot=False
+DisplayActivationStats=False
+LayerContainsName=activation
+LayerDoesNotContainName=softmax
+DataDiscrepancy=conceptevolution
+DataDiscrepancyFrequency=5in10
+DataDiscrepancyClass=6
+CalculateTsne=True
+TargetStream=all
+OnlineAnalysis=True
+UnseenDataSource=test
+GetAnalysisParams=False
