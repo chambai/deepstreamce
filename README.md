@@ -2,6 +2,13 @@
 This is an implementation of DeepStreamCE algorithm for detetcing concept evolution in deep neural networks with streaming methods
 
 This demo of DeepStreamCE trains a VGG16 deep neural network on two classes (0 and 1 - airplane and automobile) from the CIFAR-10 dataset, with a concept evolution (class 6 - Frog) applied.  The concept evolution detection results are stored in *outlierresults.csv file in the 'output' directory.
+
+The following additional blank directories are required within the deepstreamce base directory:
+	> models
+	> models/reduce
+	> output
+	> subprocess
+	> openmax_compare/output
  
 Run traindnn.ipynb to create a DNN trained on 2 classes of the CIFAR-10 dataset.  This will be stored in the 'models' directory
 
