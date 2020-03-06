@@ -21,16 +21,16 @@ reductionModel = None
 encodedLayerNumber = None
 
 #--------------------------------------------------------------------------
-def reduce(flatActivations, batchFlatActivations, activationDataReductionName):
+def reduce(flatActivations, batchFlatActivations):
     # reduce the activations
     numInstances = len(flatActivations)
 
     if numInstances > 1:
-        util.thisLogger.logInfo("---------- start of autoencoder activation data reduction ----------")
+        util.thisLogger.logInfo("---------- start of activation data reduction ----------")
         reducedFlatActivations = reduce_autoenc(flatActivations, batchFlatActivations) 
         
     if numInstances > 1:
-        util.thisLogger.logInfo("----------- end of %s activation data reduction ----------\n"%(activationDataReductionName))
+        util.thisLogger.logInfo("----------- end of activation data reduction ----------\n")
         
     return reducedFlatActivations
 
@@ -64,12 +64,10 @@ def reduce_autoenc(flatActivations, batchFlatActivations):
     # reduces the activations for an unseen instance and returns 
     # the reduced activations and the neuron labels
     global reductionModel
-    autoencoderName = util.getParameter('AutoencoderName')
     encodedOutput = None
 
     # Take only the first and middle layers of the model
-    encodedLayerNumber = getEncodedLayerNumber()
-    encoder = Model(inputs=reductionModel.input, outputs=reductionModel.layers[encodedLayerNumber].output)
+    encoder = Model(inputs=reductionModel.input, outputs=reductionModel.layers[1].output)
 
     processorType = util.getParameter('ProcessorType')
     if processorType == "GPU":
@@ -88,33 +86,22 @@ def reduce_autoenc(flatActivations, batchFlatActivations):
 # Reduction technique training
 #----------------------------------------------------------------------------
 #--------------------------------------------------------------------------
-def train(flatActivations, batchFlatActivations, activationDataReductionName):
+def train(flatActivations, batchFlatActivations):
     # Perform any model trainig that is required by the activation reduction technique
     numInstances = len(flatActivations)
     if numInstances > 1:
-            util.thisLogger.logInfo("---------- start of '%s' activation data reduction training ----------"%(activationDataReductionName))
-            
-    if(activationDataReductionName != 'none'):
-        if(activationDataReductionName == 'autoenc'):
-            train_autoencoder(flatActivations, batchFlatActivations)
-        else:
-            raise ValueError("Activation data reduction name of %s is not recognised"%(activationDataReductionName))
-    else:
-        util.thisLogger.logInfo("'%s' activation reduction technique does not require training"%(activationDataReductionName))  
-    
-    
-    if numInstances > 1:
-        util.thisLogger.logInfo("----------- end of '%s' activation data reduction training ----------\n"%(activationDataReductionName))      
+        util.thisLogger.logInfo("---------- start of activation data reduction training ----------")    
+        train_autoencoder(flatActivations, batchFlatActivations)
+        util.thisLogger.logInfo("----------- end of activation data reduction training ----------\n")      
 
 #--------------------------------------------------------------------------
 def train_autoencoder(flatActivations, batchFlatActivations):
     # TODO: remove batchFlatActivations when happy that it is scaled up to handle flat activations
     global reductionModel
     autoencoder_trained = None
-    autoencoderName = util.getParameter('AutoencoderName')
 
     # check if there is already a model saved
-    modelFileName = getModelFileName(autoencoderName)
+    modelFileName = getModelFileName()
     try:
         autoencoder_trained = load_model(modelFileName)
     except Exception as e:
@@ -132,17 +119,19 @@ def train_autoencoder(flatActivations, batchFlatActivations):
     reductionModel = autoencoder_trained    
 
 #----------------------------------------------------------------------------
-def getModelFileName(autoencoderName):
+def getModelFileName():
     datasetName = util.getParameter('DatasetName')
     classes = util.getParameter('DataClasses')
     classes = np.asarray(classes.replace('[','').replace(']','').split(',')).astype(int)
     classesStr = '%sclasses'%(len(classes))
     for c in classes:
         classesStr += str(c)
-    activationLayerExtraction = util.getParameter('ActivationLayerExtraction')
+
     numActivationTrainingInstances = util.getParameter('NumActivationTrainingInstances')
     
-    modelFileName = '/home/jupyter/deepactistream/models/reduce/%s_%s_%s_%s_%s.h5'%(datasetName,classesStr,activationLayerExtraction,autoencoderName,str(numActivationTrainingInstances))
+    modelFileName = '%s/models/reduce/%s_%s_single_undercomp_%s.h5'%(os.getcwd(),datasetName,classesStr,str(numActivationTrainingInstances))
+    util.thisLogger.logInfo('Reduction model filename: %s'%(modelFileName))
+    #modelFileName = '/home/jupyter/deepactistream/models/reduce/%s_%s_single_undercomp_%s.h5'%(datasetName,classesStr,str(numActivationTrainingInstances))
     return modelFileName
 
 #----------------------------------------------------------------------------
@@ -191,62 +180,30 @@ def train_undercompleteAutoencoder(flatActivations, batchFlatActivations):
 
 #----------------------------------------------------------------------------
 def design_autoencoder(input_size):
-    autoencoderName = util.getParameter('AutoencoderName')
     hidden_size =  100
     output_size = input_size
     util.thisLogger.logInfo('Input size of ' + str(input_size) + ' will be reduced to a size of ' + str(hidden_size))
     
-    if(autoencoderName == 'undercomp'):
-        # create autoencoder network
-        inputLayer = Input(shape=(input_size,))
+    # create autoencoder network
+    inputLayer = Input(shape=(input_size,))
 
-        numGpus = 1; # get
-        device = '/gpu:1'   # assume 2 GPUs (0 and 1)
-        if(numGpus == 1):
-            device = '/gpu:0'
+    numGpus = 1; # get
+    device = '/gpu:1'   # assume 2 GPUs (0 and 1)
+    if(numGpus == 1):
+        device = '/gpu:0'
             
-        # Encoder - place on separate GPU as it is big. Is keras placing the gradients on GPU0 anyway?
-        with tf.device(device): 
-            hiddenLayer = Dense(hidden_size, activation='relu')(inputLayer)
+    # Encoder - place on separate GPU as it is big. Is keras placing the gradients on GPU0 anyway?
+    with tf.device(device): 
+        hiddenLayer = Dense(hidden_size, activation='relu')(inputLayer)
 
-        # Decoder
-        outputLayer = Dense(output_size, activation='sigmoid')(hiddenLayer)
+    # Decoder
+    outputLayer = Dense(output_size, activation='sigmoid')(hiddenLayer)
         
-        # train autoencoder (encoder + decoder)
-        autoencoder = Model(inputs=inputLayer, outputs=outputLayer)
-        autoencoder.compile(optimizer='adam', loss='mse')
-        
-    if(autoencoderName == 'multilayer'):   
-        x = Input(shape=(input_size,))
-
-        # Encoder
-        with tf.device(device): 
-            encoded = Dense(input_size, activation='relu')(x)
-            encoded = Dense(1024, activation='relu')(encoded)
-            encoded = Dense(hidden_size, activation='relu')(encoded)
-
-        # Decoder
-        decoded = Dense(1024, activation='relu')(encoded)
-        decoded = Dense(output_size, activation='sigmoid')(decoded)
-        
-        autoencoder = Model(input=x, output=decoded)
-        autoencoder.compile(optimizer='adam', loss='mse') # use binary_crossentropy?
+    # train autoencoder (encoder + decoder)
+    autoencoder = Model(inputs=inputLayer, outputs=outputLayer)
+    autoencoder.compile(optimizer='adam', loss='mse')
     
     return autoencoder
-
-#----------------------------------------------------------------------------
-def getEncodedLayerNumber():
-    encodedLayerNumber = None
-    autoencoderName = util.getParameter('AutoencoderName')
-    
-    if(autoencoderName == 'undercomp'):
-        encodedLayerNumber = 1
-    elif(autoencoderName == 'multilayer'): 
-        encodedLayerNumber = 5
-    else:
-        raise ValueError('Unhandled autoencoderName of: %s'%(autoencoderName))
-        
-    return encodedLayerNumber
 
 #----------------------------------------------------------------------------
 def trainInBatches(autoencoder, batchFlatActivations, epochs):
@@ -258,8 +215,8 @@ def trainInBatches(autoencoder, batchFlatActivations, epochs):
             act_train, act_valid = train_test_split(np.asarray(batch), test_size=0.33, shuffle= True)
             trainingLoss = autoencoder.train_on_batch(act_train,act_train)
             testloss = autoencoder.test_on_batch(act_valid, act_valid, sample_weight=None, reset_metrics=False)
-            print('Training loss: %s'%(trainingLoss))
-            print('Test loss: %s:'%(testloss))
+            util.thisLogger.logInfo('Training loss: %s'%(trainingLoss))
+            util.thisLogger.logInfo('Test loss: %s:'%(testloss))
 
         print ("Reconstruction Loss:", autoencoder.evaluate(act_train, act_train, verbose=0))
     return autoencoder

@@ -28,11 +28,10 @@ process = False
 results = None
 
 #----------------------------------------------------------------------------
-def setup(flatActivations, y_train, streamList, clustererList, dataSourceName, javaDir, filePrefix, unseenDataList):
+def setup(flatActivations, y_train, streamList, clustererList, javaDir, filePrefix, unseenDataList):
     global results
     results = None
     util.thisLogger.logInfo("---------- start of MCOD setup for activaton analysis----------")
-    clustererName = util.getParameter('ClustererName')
     
     subprocessName = 'subprocess/MoaGateway.jar'
     global moaGatewayStarted
@@ -43,7 +42,7 @@ def setup(flatActivations, y_train, streamList, clustererList, dataSourceName, j
             gateway = JavaGateway()
         else:
             raise ValueError(subprocessName + ' has not started')
-        createClusterers(flatActivations, y_train, streamList, clustererList, dataSourceName, clustererName, None, javaDir, filePrefix, unseenDataList)
+        createClusterers(flatActivations, y_train, streamList, clustererList, None, javaDir, filePrefix, unseenDataList)
     
     util.thisLogger.logInfo("----------- end of MCOD setup for activaton analysis----------\n")
 
@@ -76,7 +75,7 @@ def getAttributeNames(flatActivations):
     return jAttributeNames
 
 #----------------------------------------------------------------------------
-def createClusterers(flatActivations, y_train, streamList, clustererList, dataSourceName, clustererName, batch, javaDir, filePrefix, unseenDataList):
+def createClusterers(flatActivations, y_train, streamList, clustererList, batch, javaDir, filePrefix, unseenDataList):
             
     classes = np.unique(y_train)
     util.thisLogger.logInfo("\n%s classes found in entire training data"%(classes))
@@ -86,10 +85,10 @@ def createClusterers(flatActivations, y_train, streamList, clustererList, dataSo
     # get data into java
     for dataClass in classes:
         # create stream
-        stream = createStream(jAttributeNames, dataSourceName)
+        stream = createStream(jAttributeNames)
         streamList[str(dataClass)] = stream
         # create clusterer
-        clusterer = createClusterer(stream, clustererName)
+        clusterer = createClusterer(stream)
         clustererList[str(dataClass)] = clusterer
         util.thisLogger.logInfo("Created stream and cluster " + str(dataClass))
     
@@ -99,7 +98,7 @@ def createClusterers(flatActivations, y_train, streamList, clustererList, dataSo
         
     # prepare trained MCODs for use
     util.thisLogger.logInfo("Number of CPUs: " + str(numCpus))
-    dataDiscrepancy, numDiscrepancy, numNonDiscrepancy, unseenDataSource = datastream.getInstanceParameters()
+    numDiscrepancy, numNonDiscrepancy = datastream.getInstanceParameters()
     
     for i in clustererList.keys():
         numClassInstances = len([x.predictedResult for x in unseenDataList if x.predictedResult == int(i)])
@@ -113,7 +112,7 @@ def addToClusterer(stream, javaFile, ids):
     # get data into java
     jIds = ListConverter().convert(ids, gateway._gateway_client)
  
-    print(javaFile)
+    util.thisLogger.logInfo(javaFile)
     gateway.entry_point.Moa_Clusterers_Outliers_Mcod_AddCsvDataToStream(stream, javaFile, jIds)
 
 #----------------------------------------------------------------------------
@@ -126,25 +125,21 @@ def setAnalysisParameters_Mcod(clusterer, k, radius, windowSize):
 #----------------------------------------------------------------------------
 def convert(object, gateway_client):
         ArrayList = JavaClass("java.util.ArrayList", gateway_client)
-        print("created ArrayList") 
         java_list = ArrayList()
-        print("created java_list")
         java_list.addAll(object)
         return java_list
 
 #----------------------------------------------------------------------------
 def processStreamInstances(streamList, clustererList, numInstances, dataDir, prefix, processOnce=False, saveOutlierResults=False):   
     if processOnce:
-        clustererName = util.getParameter('ClustererName')
         for i in streamList.keys():
-            processStreamInstance(streamList[i], clustererList[i], i, clustererName, numInstances, dataDir, prefix, saveOutlierResults)
+            processStreamInstance(streamList[i], clustererList[i], i, numInstances, dataDir, prefix, saveOutlierResults)
     else:
         global process
         process = True
-        clustererName = util.getParameter('ClustererName')
         while process:
             for i in streamList.keys():
-                processStreamInstance(streamList[i], clustererList[i], i, clustererName, numInstances, dataDir, prefix, saveOutlierResults)       
+                processStreamInstance(streamList[i], clustererList[i], i, numInstances, dataDir, prefix, saveOutlierResults)       
     util.thisLogger.logInfo('processing stopped')
     
 #----------------------------------------------------------------------------
@@ -154,7 +149,7 @@ def stopProcessing():
     util.thisLogger.logInfo('processing stop request received: process=' + str(process))
 
 #----------------------------------------------------------------------------
-def processStreamInstance(stream, clusterer, i, clustererName, numInstances, dataDir, prefix, saveOutlierResults=False):
+def processStreamInstance(stream, clusterer, i, numInstances, dataDir, prefix, saveOutlierResults=False):
     global results
     if saveOutlierResults == True:
         if results == None:
@@ -173,18 +168,11 @@ def processStreamInstance(stream, clusterer, i, clustererName, numInstances, dat
                 newInst = newInstEx.getInstanceExample().getData()
                 
                 if saveOutlierResults == True:
-                    # Add unseen instance
-                    #clusterer = clusterer.processNewInstanceImplUnseen(newInst)
-                    #clusterer = gateway.entry_point.Moa_Clusterers_Outliers_MCOD_processNewInstanceImplUnseen(clusterer, newInst)
-
                     # determine if the instance is an outlier
                     outlierResult = 'clusterer not defined'
                     clusterResult = None
                     inlierResult = None
-                    l2Norms = []
-                    csvL2NormCluster = ''
-                    if(clustererName == 'mcod'):
-                        outlierResult = gateway.entry_point.Moa_Clusterers_Outliers_MCOD_addAndAnalyse(clusterer, newInst, trainFilename, numCpus)
+                    outlierResult = gateway.entry_point.Moa_Clusterers_Outliers_MCOD_addAndAnalyse(clusterer, newInst, trainFilename, numCpus)
 
                     if(numInstances == -1):
                         if(outlierResult[0] == 'DATA,OUTLIER,OUTLIER'):
@@ -194,7 +182,9 @@ def processStreamInstance(stream, clusterer, i, clustererName, numInstances, dat
                         else:
                             util.thisLogger.logInfoColour("[%s] Activation data for stream %s, instance %s: %s" % (instId,i,numSamples,outlierResult), 'magenta')
 
-                            result = [instId,'ND', i, outlierResult[0].replace('DATA,OUTLIER,','')]
+                    # at this point we don't know if the original instance was an ND instance or CE as this is on a different thread
+                    # mark is as ND for now, and update relevant entries with CE when creating the results
+                    result = [instId,'ND', i, outlierResult[0].replace('DATA,OUTLIER,','')]
                     results.append(result)
                 else:
                     # add instance as a training instance and do not do any outlier anlysis on it
@@ -209,33 +199,21 @@ def processStreamInstance(stream, clusterer, i, clustererName, numInstances, dat
             gateway.entry_point.StopCreatingTrainedClusterers()       
         
 #----------------------------------------------------------------------------   
-def createStream(jActLabels, dataSourceName):
+def createStream(jActLabels):
     # set the stream
-    stream = None
-    if(dataSourceName == 'rbf'):
-        stream = gateway.entry_point.Moa_Streams_Generators_RandomRBFGenerator_New()
-     
-    if(dataSourceName == 'add'):
-        stream = gateway.entry_point.Moa_Streams_AddStream_New(jActLabels)
+    stream = gateway.entry_point.Moa_Streams_AddStream_New(jActLabels)
         
     stream.prepareForUse()
     return stream
     
 #----------------------------------------------------------------------------
-def createClusterer(stream, clustererName):
+def createClusterer(stream):
     # set the clusterer
-    clusterer = None
-    if(clustererName == 'mcod'):
-        clusterer = gateway.entry_point.Moa_Clusterers_Outliers_MCOD_New()
-        k = util.getParameter('mcod_k')
-        radius = util.getParameter('mcod_radius')
-        windowSize = util.getParameter('mcod_windowsize')
-        setAnalysisParameters_Mcod(clusterer, k, radius, windowSize)
-     
-    if(clustererName == 'anyout'):
-        clusterer = gateway.entry_point.Moa_Clusterers_Outliers_AnyOut_New()
-        windowSize = util.getParameter('anyout_windowsize')
-        setAnalysisParameters_AnyOut(clusterer, windowSize)
+    clusterer = gateway.entry_point.Moa_Clusterers_Outliers_MCOD_New()
+    k = util.getParameter('mcod_k')
+    radius = util.getParameter('mcod_radius')
+    windowSize = util.getParameter('mcod_windowsize')
+    setAnalysisParameters_Mcod(clusterer, k, radius, windowSize)
      
     clusterer.setModelContext(stream.getHeader())  
     clusterer.prepareForUse()

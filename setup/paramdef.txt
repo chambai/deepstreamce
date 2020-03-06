@@ -1,46 +1,16 @@
 LoggingEnabled				#bool			# Boolean indicating if console output is to be logged to a file
-LogPath								# Storage path for log files
 LogLevel				#INFO,DEBUG		# The types of messages that are logged. INFO or DEBUG.
 ProcessorType				#CPU,GPU		# The processor type that the code is run on. CPU or GPU
 DatasetName                         # Dataset name
-DataFilter				#2classes,5classes		# Limits the activation training data to instances containing the first 5 classes only
+DataFilter				#2classes,5classes		# Limits the activation training data to instances containing the first n classes only
 DataClasses			# A comma-separated list of classes that the DNN is trained on
 DnnModelPath							# Path and name of the trained h5 DNN model.  This can be specified as an absolute path or a relative path to the deepactistream folder 
-DataInputStreamName			#time,pipeline		# The stream method by which new instances are presented to the DNN
-DataSourceName				#add,rbf		# DEBUG - rbf uses random RBF generator for the input stream instead of instances taken from the test data	
-ActivationThreshold			#float			# Float defining the threshold at which activations are to be counted. (-1 means no threshold)
-DisplayTrainingActivations		#bool			# Displays the activations data in a line graphs (one line graph for each of the classes).  This is alwys limited to the first 50 instances otherwise the plots take too long to display.
-LoadReducedActivationsFromFile		#bool			# DEBUG - loads reduced activations from file instead of collecting activations from the model and reducing them
-StopAtClustering		#bool			# DEBUG - stops processing before clustering occurs
-ClustererName				#mcod,anyout		# The streaming clustering method
 mcod_k					#int			# The nominated number of neighbours for MCOD clustering
 mcod_radius				#float			# The distance parameter for outlier detection for MCOD clustering
 mcod_windowsize				#int			# The window size parameter for MCOD clustering
-anyout_windowsize			#int			# The window size parameter for AnyOut clustering
-ActivationLayerExtraction		#none,single,max,topkpercent,layerl2norm	# The method by which activations from each layer are taken. 'single' takes all activations from one layer. 'max' takes the max element numbers from each layer.  If set to 'max', then ActivationDataReductionName needs to be set to 'none'
 IncludedLayers			# A comma-separated list of layers of the DNN that are to be included in the activation extraction
-ActivationDataReductionName		#none,maxvalue,autoenc	# The method by which activations are reduced
-Topmost					#int			# Required if ActivationDataReductionName=maxvalue. Integer defining the number of activations that will be returned from each layer. If set to -1, all activation values will be used.   
-AutoencoderName				#none,undercomp,multilayer # Required if ActivationDataReductionName=autoenc. The autoencoder method by which activations are reduced
-NumActivationTrainingInstances		#int			# Integer defining the number of training instances used for getting activation data (currently the range is 1 to 1300 in Spyder on my uni PC). If set to -1, all instances in the training data will be used
-ActivationTrainingBatchSize		#int			# Integer defining the number of training instances that activation data will be extracted for in one batch (this is required due to python/spyder memory limitations)
-NumActivationElements			#int			# DEBUG - Integer defining the number of activation elements in an instance.  If set to -1, all activation elements are used.  This is only to be used for debugging the software.
+NumActivationTrainingInstances		#int			# Integer defining the number of training instances used for getting activation data. If set to -1, all instances in the training data will be used
+ActivationTrainingBatchSize		#int			# Integer defining the number of training instances that activation data will be extracted for in one batch (this is required due to python/IDE memory limitations)
 NumUnseenInstances			#int			# Integer defining the total number of unseen instances to be processed individually. This is used in conjunction with DataDiscrepancy and DataDiscrepancyFrequency to provide the specified frequency of data discrepancies defined there
-TimeIntervalBetweenInstances		#float			# Float defining the time interval in seconds between each instance being presented to the DNN (Currently the time to get activations dwarfs this!)
-SimulateActivations			#bool			# DEBUG - Boolean specifying whether simulated hard-coded values are to be used for the activations
-SimulatePredictions			#bool			# DEBUG - Boolean specifying whether simulated hard-coded values are to be used for the activation values of the prediction
-DisplayImage				#bool			# Boolean specifying if the input image should be displayed (these are only displayed for unseen instances, not for training instances)
-DisplayHeatmaps				#bool			# Boolean specifying if heat maps should be displayed (these are only displayed for unseen instances, not for training instances)
-DisplayActivationVis			#bool			# Boolean specifying if activation maps should be displayed (these are only displayed for unseen instances, not for training instances)
-ActivationScatterPlot			#bool			# Boolean specifying if scatter plots of the activations should be displayed (these are only displayed for unseen instances, not for training instances)
-DisplayActivationStats			#bool			# Boolean specifying if graphical statistics of the activations should be displayed (these are only displayed for unseen instances, not for training instances)
-LayerContainsName			#stringarray		# Comma delimited string that is used to check for substrings in the layer name.  If it exists, the activations for that layer will be included. A typical value could be 'activation'
-LayerDoesNotContainName			#stringarray		# Comma delimited string that is used to check for substrings in the layer name.  If it exists, the activations for that layer will NOT be included. A typical value could be 'softmax'
-DataDiscrepancy				#none,conceptdrift,conceptevolution	# The type of data discrepancy to be introduced to the unseen instances.  If set to 'none', DataDiscrepancyFrequency will be ignored
-DataDiscrepancyFrequency					# The frequency of the data discrepancy i.e. 1 in 2 will be 1 instance with a data discrepancy and 1 instance with a known class from the test data. Currently it will provide all of the non-discrepancy instances, then all of the discrepancy instances
-CalculateTsne			#bool			# DEBUG - Boolean specifying whether t-SNE calculations are to be performed, plotted and stored in csv files
-DataDiscrepancyClass	#int				# The class number of the data discrepancies, or 'all' if a specific class is not required 
-TargetStream				#all,single		# Defines which streams the unseen instances will be added to. 'all' adds them to all streams. 'single' adds them to the stream of the predicted class	
-OnlineAnalysis			#bool			# DEBUG - Boolean specifying if the MOA online clustering analysis is to be performed.  If this is set to False, ARFF files will be created.
-UnseenDataSource				#train,test		# Limits the activation training data to instances containing the first 5 classes only
-GetAnalysisParams			#bool			# Boolean specifying if the parameters for the online analysis are to be determined.
+DataDiscrepancyFrequency					# The frequency of the data discrepancy i.e. '250in500' will be 250 instances with a data discrepancy (concept evolution) and 250 instances of a known class from the test data.
+DataDiscrepancyClass	#int				# The class number of the concept evolution class 

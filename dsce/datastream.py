@@ -16,17 +16,17 @@ import util
 unseenDataList = None
    
 #---------------------------------------------------------------------------- 
-def startDataInputStream(streamList, clustererList, reductionModel, dnnModel, x_test, dataSourceName, timeIntervalBetweenInstances, simPrediction, maxClassValues1, maxClassValues2, dataDir, filePrefix):
+def startDataInputStream(streamList, clustererList, reductionModel, dnnModel, x_test, maxClassValues1, maxClassValues2, dataDir, filePrefix):
     numUnseenInstances = util.getParameter('NumUnseenInstances')
-    util.thisLogger.logInfo("\n---------- start of data input stream ----------")
-    unseenInstances, unseenResults = startDataInputStream_Time(streamList, clustererList, reductionModel, dnnModel, x_test, numUnseenInstances, dataSourceName, 
-                                                                timeIntervalBetweenInstances, simPrediction, maxClassValues1, maxClassValues2, dataDir, filePrefix)
-    util.thisLogger.logInfo("----------- end of %s data input stream ----------\n"%(dataInputStreamName))
+    util.thisLogger.logInfo("---------- start of data input stream ----------")
+    unseenInstances, unseenResults = startDataInputStream_Time(streamList, clustererList, reductionModel, dnnModel, x_test, numUnseenInstances, 
+                                                                 maxClassValues1, maxClassValues2, dataDir, filePrefix)
+    util.thisLogger.logInfo("----------- end of %s data input stream ----------")
     
     return unseenInstances, unseenResults
             
 #---------------------------------------------------------------------------- 
-def startDataInputStream_Time(streamList, clustererList, reductionModel, dnnModel, x_test, numUnseenInstances, dataSourceName, timeIntervalBetweenInstances, simPrediction, maxClassValues1, maxClassValues2, dataDir, filePrefix):
+def startDataInputStream_Time(streamList, clustererList, reductionModel, dnnModel, x_test, numUnseenInstances, maxClassValues1, maxClassValues2, dataDir, filePrefix):
     instanceIndex = 0
     
     # calculate the total number of loops of instances
@@ -34,15 +34,12 @@ def startDataInputStream_Time(streamList, clustererList, reductionModel, dnnMode
     if(batchHandle):
         numLoops = 1
     else:
-        dataDiscrepancy, numDiscrepancy, numNonDiscrepancy, unseenDataSource = getInstanceParameters()
-        if(dataDiscrepancy == 'none'):
-            numLoops = numUnseenInstances
-        else:
-            numLoops = numUnseenInstances//numNonDiscrepancy
+        numDiscrepancy, numNonDiscrepancy = getInstanceParameters()
+        numLoops = numUnseenInstances//numNonDiscrepancy
     
     allUnseenInstances = []
     allUnseenResults = []
-    allUnseenInstances = batchProcessObjList(allUnseenInstances, allUnseenResults, dnnModel, simPrediction, maxClassValues1, maxClassValues2, streamList, dataDir, filePrefix)
+    allUnseenInstances = batchProcessObjList(allUnseenInstances, allUnseenResults, dnnModel, maxClassValues1, maxClassValues2, streamList, dataDir, filePrefix)
     
     return np.asarray(allUnseenInstances), np.asarray(allUnseenResults)
     
@@ -56,7 +53,6 @@ def addInstancesByStream(allUnseenInstances, streamList, dataDir, filePrefix):
         
         streamName = str(prediction)
         ids = [str(x.id) for x in instances]
-        print(ids)
         
         instances = [x.instance for x in instances]
                      
@@ -66,17 +62,7 @@ def addInstancesByStream(allUnseenInstances, streamList, dataDir, filePrefix):
         instancesCsvFile = '%s/%s_unseenactivations_%s.csv'%(dataDir,filePrefix,streamName)
         util.saveToCsv(instancesCsvFile, instances)
 
-        print(streamList)
         analyse.addToClusterer(streamList[streamName], instancesCsvFile, ids)
-        
-        ids = np.insert(ids,0,'-1')
-        print(ids)
-        ids = np.reshape(ids, (-1, 1))
-        print(ids)
-        
-        instances = np.concatenate((ids, instances), axis=1)
-        instancesCsvFile = instancesCsvFile.replace(".csv","_ids.csv")
-        util.saveToCsv(instancesCsvFile, instances)
 
 #----------------------------------------------------------------------------
 def setPredictions(dnnModel):
@@ -101,7 +87,7 @@ def setPredictions(dnnModel):
         unseenDataList[index].predictedResult = predictions[index]
 
 #----------------------------------------------------------------------------
-def batchProcessObjList(allUnseenDataList, allUnseenResults, dnnModel, simPrediction, maxClassValues1, maxClassValues2, streamList, dataDir, filePrefix):
+def batchProcessObjList(allUnseenDataList, allUnseenResults, dnnModel, maxClassValues1, maxClassValues2, streamList, dataDir, filePrefix):
     global unseenDataList
     
     util.thisLogger.logInfo('Start of instance processing,%s'%(len(unseenDataList)))
@@ -130,9 +116,7 @@ def batchProcessObjList(allUnseenDataList, allUnseenResults, dnnModel, simPredic
         flatActivations = flatActivations/maxClassValues1
 
     # reduce activations
-    flatActivations = reduce.reduce(flatActivations, None, util.getParameter('ActivationDataReductionName'))
-    print('flatActivations: %s'%(len(flatActivations))) #50
-    print('flatActivations: %s'%(len(flatActivations[0]))) #100
+    flatActivations = reduce.reduce(flatActivations, None)
     
     # normalise the reduced instance activations
     if maxClassValues2 != None :
@@ -174,17 +158,13 @@ def getInstancesWithResultsBatchObj():
     #np.random.seed(42) # get the same random indexes each time for now
     global unseenDataList
     unseenDataList = []
-    dataDiscrepancy, numDiscrepancy, numNonDiscrepancy, unseenDataSource = getInstanceParameters()
+    numDiscrepancy, numNonDiscrepancy = getInstanceParameters()
     
     # if num discrepancies and num non-discrepancies match, set numNonDiscrepancy to zero, so none are generated
     if(numDiscrepancy == numNonDiscrepancy):
         numNonDiscrepancy = 0
     else:
-        numNonDiscrepancy = numNonDiscrepancy - numDiscrepancy
-   
-    if(dataDiscrepancy == 'none'):
-        numDiscrepancy = 0
-        
+        numNonDiscrepancy = numNonDiscrepancy - numDiscrepancy        
         
     # get non-discrepancy data
     f_x_train, f_y_train, f_x_test, f_y_test = dataset.getFilteredData()
@@ -195,7 +175,6 @@ def getInstancesWithResultsBatchObj():
     # collect non-discrepancy data
     for count in range(numNonDiscrepancy):
         index = random.randint(0,len(f_x_test)-1)
-        #print('random index: %s'%(index))
         nonDiscrepancyInstance = f_x_test[np.array([index])]
         result = f_y_test[index]
         i = UnseenData(nonDiscrepancyInstance, result, 'ND')
@@ -204,7 +183,6 @@ def getInstancesWithResultsBatchObj():
     # collect discrepancy data
     for count in range(numDiscrepancy):
         index = random.randint(0,len(oof_x_test)-1)
-        #print('random index: %s'%(index))
         discrepancyInstance = oof_x_test[np.array([index])]
         result = oof_y_test[index]
         i = UnseenData(discrepancyInstance, result, 'CE')
@@ -228,19 +206,17 @@ class UnseenData:
         self.correctResult = correctResult
         self.discrepancyName = discrepancyName
         self.predictedResult = 0
-        self.streamNames = ['global'] 
+        self.streamNames = []
      
         
 #----------------------------------------------------------------------------      
 def getInstanceParameters():
-    dataDiscrepancy = util.getParameter('DataDiscrepancy') # i.e. conceptevolution
     dataDiscrepancyFrequency = util.getParameter('DataDiscrepancyFrequency')  # i.e. 1in1
     splitData = dataDiscrepancyFrequency.split('in')
     numDiscrepancy = int(splitData[0].strip())  # first number is number of discrepancies
     numNonDiscrepancy = int(splitData[1].strip()) # second number is number of  non-discrepancies
-    unseenDataSource = util.getParameter('UnseenDataSource')  
       
-    return dataDiscrepancy, numDiscrepancy, numNonDiscrepancy, unseenDataSource
+    return numDiscrepancy, numNonDiscrepancy
 
         
         

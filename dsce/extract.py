@@ -51,8 +51,7 @@ def getActivationData(model, inData):
 def getActivations(model, inData):
     actDict = {}
 
-    #ActivationLayerExtraction
-    layerExtraction = util.getParameter("ActivationLayerExtraction")
+    # Activation Layer Extraction
     layers = util.getParameter("IncludedLayers")
     
     if(layers == 'all'):
@@ -66,13 +65,10 @@ def getActivations(model, inData):
         getLastLayerOutput = K.function([model.layers[0].input],
                                       [model.layers[layerNum].output])
         
-        if(layerExtraction == "single"):
-            # all values from one layer
-            if layerNum in layers:
-                layer_output = getLastLayerOutput([inData])
-                actDict["activation" +str(layerNum)] = layer_output[0]  
-        else:
-            raise ValueError("layerExtraction name of '%s' not recognised: "%(layerExtraction))
+        # all values from one layer
+        if layerNum in layers:
+            layer_output = getLastLayerOutput([inData])
+            actDict["activation" +str(layerNum)] = layer_output[0]
         
     return actDict
 

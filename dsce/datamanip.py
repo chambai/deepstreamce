@@ -57,24 +57,10 @@ def flattenList(obj):
 #----------------------------------------------------------------------------
 def normalizeFlatValues(flatActivations, isTrainingData, maxValue=None):
     # divides each element by the max value of the training data
-    
-    #flatActivations = np.vstack(flatActivations)
-    #for i in range(len(flatActivations)):
-    #    activationMatrix = np.vstack((activationMatrix,flatActivations[i]))
-    
-    #print(activationMatrix)
     if isTrainingData:
         # find max value from the training data, then normalise
         maxValue = np.amax(flatActivations)
-        print('Max Value: %s'%(maxValue))
-    
-    
-    flatActivations = flatActivations/maxValue
 
-    #for i in range(len(flatActivations)):
-    #    flatActivations[i] = activationMatrix[:i]
-   
-    #print(activationMatrix)
-    #print(flatActivations)
+    flatActivations = flatActivations/maxValue
     
     return flatActivations, maxValue
